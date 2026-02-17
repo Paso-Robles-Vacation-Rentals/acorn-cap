@@ -1,5 +1,5 @@
+import asyncio
 import subprocess
-import time
 
 import httpx
 
@@ -56,7 +56,7 @@ async def handle_wifi_connectivity():
         try:
             is_online = get_wifi_status().get("connected", None)
         except KioskError:
-            time.sleep(poll_interval)
+            await asyncio.sleep(poll_interval)
     print("[INFO] Kiosk connectivity watcher started")
     if is_online:
         print(f"[STATE] WiFi connected")
@@ -68,7 +68,7 @@ async def handle_wifi_connectivity():
     while True:
         current_status = get_wifi_status().get("connected", None)
         if current_status == is_online:
-            time.sleep(poll_interval)
+            await asyncio.sleep(poll_interval)
             continue
         is_online = current_status
         if is_online:
@@ -79,4 +79,4 @@ async def handle_wifi_connectivity():
             print("[STATE] WiFi disconnected")
             set_kiosk_url(DISCONNECTED_URL)
             poll_interval = POLL_INTERVAL_OFFLINE
-        time.sleep(poll_interval)
+        await asyncio.sleep(poll_interval)
