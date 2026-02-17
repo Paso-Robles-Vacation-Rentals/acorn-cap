@@ -4,7 +4,7 @@ import httpx
 
 WIFI_STATUS_URL = "http://localhost:8000/wifi/status"
 
-DISCONNECTED_URL = "http://localhost:8001"
+DISCONNECTED_URL = "http://localhost:8000"
 CONNECTED_URL = "https://guests.escapia.com/login?property_manager_id=1305"
 
 POLL_INTERVAL_OFFLINE = 5  # seconds
@@ -19,9 +19,8 @@ def get_wifi_status() -> dict:
         resp = httpx.get(WIFI_STATUS_URL, timeout=2)
         resp.raise_for_status()
         return resp.json()
-    except Exception as e:
-        print(f"[ERROR] Failed to get wifi status: {e}")
-        raise KioskError("Failed to get wifi status")
+    except httpx.HTTPError as e:
+        raise KioskError(f"Failed to get wifi status: {e}")
 
 
 def get_current_kiosk_url() -> str:
@@ -34,8 +33,7 @@ def get_current_kiosk_url() -> str:
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Failed to get kiosk url: {e.stderr}")
-        raise KioskError("Failed to get kiosk url")
+        raise KioskError(f"Failed to get current kiosk url: {e.stderr}")
 
 
 def set_kiosk_url(url):
@@ -46,34 +44,34 @@ def set_kiosk_url(url):
             check=True,
         )
     except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Failed to set kiosk url: {e.stderr}")
+        print("[ERROR] Failed to set kiosk url")
 
 
 def main():
-    print("[INFO] Kiosk connectivity watcher started")
+    is_online = None
+    poll_interval = 1
 
-    last_status = get_wifi_status()
-    poll_interval = POLL_INTERVAL_OFFLINE
-    while last_status is None:
-        time.sleep(1)
+    while is_online is None:
         try:
-            last_status = get_wifi_status()
+            is_online = get_wifi_status().get("connected", None)
         except KioskError:
-            continue
-    if last_status["connected"]:
-        print(f"[STATE] WiFi connected to {last_status['ssid']}")
+            time.sleep(poll_interval)
+    print("[INFO] Kiosk connectivity watcher started")
+    if is_online:
+        print(f"[STATE] WiFi connected")
         set_kiosk_url(CONNECTED_URL)
+        poll_interval = POLL_INTERVAL_ONLINE
     else:
         print("[STATE] WiFi disconnected")
         set_kiosk_url(DISCONNECTED_URL)
     while True:
-        current_status = get_wifi_status()
-        if last_status == current_status:
+        current_status = get_wifi_status().get("connected", None)
+        if current_status == is_online:
             time.sleep(poll_interval)
             continue
-        last_status = current_status
-        if last_status["connected"]:
-            print(f"[STATE] WiFi connected to {current_status['ssid']}")
+        is_online = current_status
+        if is_online:
+            print(f"[STATE] WiFi connected")
             set_kiosk_url(CONNECTED_URL)
             poll_interval = POLL_INTERVAL_ONLINE
         else:
