@@ -5,8 +5,11 @@ from pathlib import Path
 ILLUMINANCE_PATH = Path("/sys/bus/iio/devices/iio:device0/in_illuminance_input")
 
 # Brightness bounds (percentage)
-BRIGHTNESS_MIN = 10
+BRIGHTNESS_MIN = 5
 BRIGHTNESS_MAX = 100
+
+LUX_SOFT_OFF = 0
+LUX_SOFT_ON = 10
 
 BRIGHTNESS_STEP = .5
 
@@ -38,7 +41,6 @@ def get_current_brightness() -> int:
 
 def set_brightness(percent: int):
     """Set brightness using brightnessctl (clamped)."""
-    percent = max(BRIGHTNESS_MIN, min(BRIGHTNESS_MAX, percent))
     subprocess.run(["brightnessctl", "set", f"{percent}%"])
 
 
@@ -53,8 +55,23 @@ def map_lux_to_brightness(lux: int) -> int:
 
 async def handle_screen_brightness():
     current_brightness = get_current_brightness()
+    soft_counter = 0
     while True:
+        await asyncio.sleep(POLL_INTERVAL)
         lux = read_ambient_lux()
+        if current_brightness > 0 and lux <= LUX_SOFT_OFF:
+            if soft_counter < 10:
+                soft_counter += 1
+                continue
+            soft_counter = 0
+            current_brightness = 0
+            set_brightness(current_brightness)
+            continue
+        if current_brightness == 0 and lux >= LUX_SOFT_ON:
+            if soft_counter < 20:
+                soft_counter += 1
+                continue
+            soft_counter = 0
         target = map_lux_to_brightness(lux)
 
         # Smooth adjustment
@@ -64,5 +81,3 @@ async def handle_screen_brightness():
         if step != 0:
             current_brightness += step
             set_brightness(current_brightness)
-
-        await asyncio.sleep(POLL_INTERVAL)
