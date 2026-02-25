@@ -6,14 +6,15 @@ ILLUMINANCE_PATH = Path("/sys/bus/iio/devices/iio:device0/in_illuminance_input")
 
 # Brightness bounds (percentage)
 BRIGHTNESS_MIN = 5
-BRIGHTNESS_MAX = 100
+BRIGHTNESS_MAX = 96000
 
 LUX_SOFT_OFF = 0
 LUX_SOFT_ON = 10
 
-BRIGHTNESS_STEP = .5
+MAX_BRIGHTNESS_STEP = 300
 
-POLL_INTERVAL = .25
+MAX_POLL_INTERVAL = 5
+MIN_POLL_INTERVAL = .05
 
 SMOOTHING = 0.2
 
@@ -23,61 +24,70 @@ def read_ambient_lux() -> int:
 
 
 def get_current_brightness() -> int:
-    """Get current brightness percentage using brightnessctl."""
+    """Get current brightness using brightnessctl."""
     result = subprocess.run(
         ["brightnessctl", "get"],
         capture_output=True, text=True, check=True
     )
-    current = int(result.stdout.strip())
-
-    result_max = subprocess.run(
-        ["brightnessctl", "max"],
-        capture_output=True, text=True, check=True
-    )
-    max_val = int(result_max.stdout.strip())
-
-    return round((current / max_val) * 100)
+    return int(result.stdout.strip())
 
 
-def set_brightness(percent: int):
+def set_brightness(brightness: int):
     """Set brightness using brightnessctl (clamped)."""
-    subprocess.run(["brightnessctl", "set", f"{percent}%"])
+    subprocess.run(["brightnessctl", "set", f"{brightness}"])
 
 
 def map_lux_to_brightness(lux: int) -> int:
-    """Map ambient light value to brightness percentage."""
+    """Map ambient light value to brightness"""
     # Simple linear mapping: adjust these thresholds to taste
     lux_min = 0
-    lux_max = 2000
-    percent = int((lux - lux_min) / (lux_max - lux_min) * BRIGHTNESS_MAX)
-    return max(BRIGHTNESS_MIN, min(BRIGHTNESS_MAX, percent))
+    lux_max = 40
+    brightness = int((lux - lux_min) / (lux_max - lux_min) * BRIGHTNESS_MAX)
+    return max(BRIGHTNESS_MIN, min(BRIGHTNESS_MAX, brightness))
+
+def get_poll_time(current_brightness, target_brightness):
+    delta = abs(current_brightness - target_brightness)
+    poll_time = MIN_POLL_INTERVAL
+    if delta > 0:
+        poll_time = 1500 / delta
+    poll_time = max(min(poll_time, MAX_POLL_INTERVAL), MIN_POLL_INTERVAL)
+    return poll_time
 
 
 async def handle_screen_brightness():
     current_brightness = get_current_brightness()
     soft_counter = 0
+    poll_time = 0
     while True:
-        await asyncio.sleep(POLL_INTERVAL)
+        await asyncio.sleep(poll_time)
         lux = read_ambient_lux()
         if current_brightness > 0 and lux <= LUX_SOFT_OFF:
-            if soft_counter < 10:
+            if soft_counter < 5:
                 soft_counter += 1
+            else:
+                poll_time = MAX_POLL_INTERVAL
+                soft_counter = 0
+                current_brightness = 0
+                set_brightness(current_brightness)
                 continue
-            soft_counter = 0
-            current_brightness = 0
-            set_brightness(current_brightness)
-            continue
         if current_brightness == 0 and lux >= LUX_SOFT_ON:
-            if soft_counter < 20:
+            if soft_counter < 5:
                 soft_counter += 1
                 continue
-            soft_counter = 0
-        target = map_lux_to_brightness(lux)
 
+        if current_brightness == 0 and lux <= LUX_SOFT_OFF:
+            continue
+
+        target = map_lux_to_brightness(lux)
         # Smooth adjustment
+        poll_time = get_poll_time(current_brightness, target)
         delta = target - current_brightness
-        step = max(-BRIGHTNESS_STEP, min(BRIGHTNESS_STEP, int(delta * SMOOTHING)))
+        step = max(-MAX_BRIGHTNESS_STEP, min(MAX_BRIGHTNESS_STEP, delta))
 
         if step != 0:
             current_brightness += step
             set_brightness(current_brightness)
+
+if __name__ == "__main__":
+    asyncio.run(handle_screen_brightness())
+                                                                      
