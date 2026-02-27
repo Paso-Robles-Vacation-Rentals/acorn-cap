@@ -1,15 +1,16 @@
 import asyncio
 
-from wifi import handle_wifi_connectivity
+from config import AcornCapConfig
+from kiosk import handle_kiosk
 from brightness import handle_screen_brightness
 
 
 async def main():
+    config = AcornCapConfig()
     tasks = [
-        asyncio.create_task(handle_wifi_connectivity()),
+        asyncio.create_task(handle_kiosk(config.kiosk)),
         asyncio.create_task(handle_screen_brightness()),
     ]
-
     await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
 
