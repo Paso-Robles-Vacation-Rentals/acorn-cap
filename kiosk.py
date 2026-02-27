@@ -3,10 +3,11 @@ import subprocess
 
 import httpx
 
+from config import KioskConfig
+
 
 WIFI_STATUS_URL = "http://localhost:8000/wifi/status"
 DISCONNECTED_URL = "http://localhost:8000"
-CONNECTED_URL = "https://guests.escapia.com/login?property_manager_id=1305"
 POLL_INTERVAL_OFFLINE = 5  # seconds
 POLL_INTERVAL_ONLINE = 60
 
@@ -48,7 +49,7 @@ def set_kiosk_url(url):
         print("[ERROR] Failed to set kiosk url")
 
 
-async def handle_kiosk():
+async def handle_kiosk(config: KioskConfig):
     is_online = None
     poll_interval = 1
 
@@ -60,7 +61,7 @@ async def handle_kiosk():
     print("[INFO] Kiosk connectivity watcher started")
     if is_online:
         print(f"[STATE] WiFi connected")
-        set_kiosk_url(CONNECTED_URL)
+        set_kiosk_url(config.online_url)
         poll_interval = POLL_INTERVAL_ONLINE
     else:
         print("[STATE] WiFi disconnected")
@@ -73,7 +74,7 @@ async def handle_kiosk():
         is_online = current_status
         if is_online:
             print(f"[STATE] WiFi connected")
-            set_kiosk_url(CONNECTED_URL)
+            set_kiosk_url(config.online_url)
             poll_interval = POLL_INTERVAL_ONLINE
         else:
             print("[STATE] WiFi disconnected")
