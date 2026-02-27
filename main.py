@@ -1,12 +1,12 @@
 import asyncio
 
-from wifi import handle_wifi_connectivity
+from kiosk import handle_kiosk
 from brightness import handle_screen_brightness
 
 
 async def main():
     tasks = [
-        asyncio.create_task(handle_wifi_connectivity()),
+        asyncio.create_task(handle_kiosk()),
         asyncio.create_task(handle_screen_brightness()),
     ]
 

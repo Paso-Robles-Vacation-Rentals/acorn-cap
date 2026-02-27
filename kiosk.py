@@ -48,7 +48,7 @@ def set_kiosk_url(url):
         print("[ERROR] Failed to set kiosk url")
 
 
-async def handle_wifi_connectivity():
+async def handle_kiosk():
     is_online = None
     poll_interval = 1
 
