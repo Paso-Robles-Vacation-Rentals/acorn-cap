@@ -9,7 +9,7 @@ async def main():
     config = AcornCapConfig()
     tasks = [
         asyncio.create_task(handle_kiosk(config.kiosk)),
-        asyncio.create_task(handle_screen_brightness()),
+        asyncio.create_task(handle_screen_brightness(config.brightness)),
     ]
     await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
