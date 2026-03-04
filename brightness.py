@@ -6,8 +6,6 @@ from config import BrightnessConfig
 
 ILLUMINANCE_PATH = Path("/sys/bus/iio/devices/iio:device0/in_illuminance_input")
 
-SMOOTHING = 1500
-
 
 def read_ambient_lux() -> int:
     return int(ILLUMINANCE_PATH.read_text().strip())
@@ -55,7 +53,7 @@ async def handle_screen_brightness(config: BrightnessConfig):
             if soft_counter < 5:
                 soft_counter += 1
             else:
-                poll_time = config.max_poll_time
+                poll_time = config.max_poll_interval
                 soft_counter = 0
                 current_brightness = 0
                 set_brightness(current_brightness)
