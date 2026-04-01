@@ -7,7 +7,7 @@ from config import KioskConfig
 
 
 WIFI_STATUS_URL = "http://localhost:8000/wifi/status"
-DISCONNECTED_URL = "http://localhost:8000"
+DISCONNECTED_URL = "http://localhost:3000"
 POLL_INTERVAL_OFFLINE = 5  # seconds
 POLL_INTERVAL_ONLINE = 60
 
